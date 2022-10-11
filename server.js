@@ -4,17 +4,16 @@ const cTable = require('console.table');
 
 const db = mysql.createConnection(
   {
-    host: '12.0.0.1',
-    port: 3001,
+    host: '127.0.0.1',
+    port: 3306,
     user: 'root',
     password: 'sharon1070',
     database: 'employeesDb'
   },
 );
 
-db.connect(function (err) {
+db.connect((err) => {
   if (err) throw err;
-  console.log(`Connected to database.`);
 
   firstPrompt();
 });
@@ -27,8 +26,11 @@ function firstPrompt() {
       name: "task",
       message: "Would you like to do?",
       choices: [
-        "View Employees",
+        "View All Employees",
+        "View All Departments",
+        "View All Roles",
         "View Employees by Department",
+        "Add Department",
         "Add Employee",
         "Remove Employees",
         "Update Employee Role",
@@ -37,14 +39,26 @@ function firstPrompt() {
     })
     .then(function ({ task }) {
       switch (task) {
-        case "View Employees":
+        case "View All Employees":
           viewEmployee();
+          break;
+
+        case "View All Departments":
+          viewDepartments();
+          break;
+
+        case "View All Roles":
+          viewRoles();
           break;
 
         case "View Employees by Department":
           viewEmployeeByDepartment();
           break;
-      
+        
+        case "Add Department":
+          addDepartment();
+          break;
+         
         case "Add Employee":
           addEmployee();
           break;
@@ -72,7 +86,7 @@ function viewEmployee() {
   console.log("Viewing employees\n");
 
   var query =
-    `SELECT e.id, e.first_name, e.last_name, r.title, d.name AS department, r.salary, CONCAT(m.first_name, ' ', m.last_name) AS manager
+    `SELECT e.id, e.first_name, e.last_name, r.title, d.department_name AS department, r.salary, CONCAT(m.first_name, ' ', m.last_name) AS manager
   FROM employee e
   LEFT JOIN role r
 	ON e.role_id = r.id
@@ -92,23 +106,55 @@ function viewEmployee() {
 
 }
 
+function viewDepartments() {
+  console.log("Viewing all Departments!\n");
+
+  var query = 
+  `SELECT * FROM department`
+
+  db.query(query, function(err, res) {
+    if (err) throw err;
+    console.table(res);
+
+    firstPrompt();
+  });
+};
+
+
+function viewRoles() {
+  console.log("Viewing all Roles!\n");
+
+  var query =
+  `SELECT r.id, r.title, d.department_name AS department, r.salary
+   FROM role r 
+   LEFT JOIN department d ON r.department_id = d.id`
+
+  db.query(query, function (err, res) {
+    if (err) throw err;
+    console.table(res);
+
+    firstPrompt();
+  });
+};
+
+
 function viewEmployeeByDepartment() {
   console.log("Viewing employees by department\n");
 
   var query =
-    `SELECT d.id, d.name, r.salary AS budget
+    `SELECT d.id, d.department_name, r.salary AS budget
   FROM employee e
   LEFT JOIN role r
 	ON e.role_id = r.id
   LEFT JOIN department d
   ON d.id = r.department_id
-  GROUP BY d.id, d.name`
+  GROUP BY d.id, d.department_name, r.salary`
 
   db.query(query, function (err, res) {
     if (err) throw err;
 
     const departmentChoices = res.map(data => ({
-      value: data.id, name: data.name
+      value: data.id, name: data.department_name
     }));
 
     console.table(res);
@@ -133,7 +179,7 @@ function promptDepartment(departmentChoices) {
       console.log("answer ", answer.departmentId);
 
       var query =
-        `SELECT e.id, e.first_name, e.last_name, r.title, d.name AS department 
+        `SELECT e.id, e.first_name, e.last_name, r.title, d.department_name AS department 
   FROM employee e
   JOIN role r
 	ON e.role_id = r.id
@@ -145,15 +191,36 @@ function promptDepartment(departmentChoices) {
         if (err) throw err;
 
         console.table("response ", res);
-        console.log(res.affectedRows + "Employees are viewed!\n");
+        console.log("Employees are viewed!\n");
 
         firstPrompt();
       });
     });
 }
 
+function addDepartment() {
+  console.log("Inserting a department!");
+
+  inquirer.prompt([
+    {
+      name: "department",
+      type: "input",
+      message: "Enter the department you would like to add:"
+    }
+    ]).then(function(answer) {
+      var query = 
+      `INSERT INTO department (department_name)
+       VALUES ('${answer.department}')`;
+      db.query(query, function(err, res) {
+        console.log(`new department added: ${answer.department}`)
+      });
+      firstPrompt();
+    });
+};
+
+
 function addEmployee() {
-  console.log("Inserting an employee!")
+  console.log("Inserting an employee!");
 
   var query =
     `SELECT r.id, r.title, r.salary 
@@ -271,7 +338,7 @@ function employeeArray() {
   console.log("Updating an employee");
 
   var query =
-    `SELECT e.id, e.first_name, e.last_name, r.title, d.name AS department, r.salary, CONCAT(m.first_name, ' ', m.last_name) AS manager
+    `SELECT e.id, e.first_name, e.last_name, r.title, d.department_name AS department, r.salary, CONCAT(m.first_name, ' ', m.last_name) AS manager
   FROM employee e
   JOIN role r
 	ON e.role_id = r.id
@@ -354,13 +421,13 @@ function promptEmployeeRole(employeeChoices, roleChoices) {
 function addRole() {
 
   var query =
-    `SELECT d.id, d.name, r.salary AS budget
+    `SELECT d.id, d.department_name, r.salary AS budget
     FROM employee e
     JOIN role r
     ON e.role_id = r.id
     JOIN department d
     ON d.id = r.department_id
-    GROUP BY d.id, d.name`
+    GROUP BY d.id, d.department_name, r.salary`
 
   db.query(query, function (err, res) {
     if (err) throw err;
