@@ -19,6 +19,6 @@ Images of running command-line application:
 
 ## URL's
 
-Repository:
+Repository: https://github.com/saucymj/SQL-Employee-Tracker
 
 Video demo: https://drive.google.com/file/d/1PeEcGnvWbOLr7e5DVr3oejk7qLbq25OR/view
